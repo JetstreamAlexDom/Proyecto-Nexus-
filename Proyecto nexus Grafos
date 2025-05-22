@@ -1,0 +1,338 @@
+# 1.- ---------------- Encabezado ----------------------------------------------
+'''
+Programa: POYECTO NEXUS (Tkinter)
+Autores: Alejandro Domínguez Flores, Diego Velazquez Torres y Uriel Alberto Rodriguez Gomez
+Grupo: 2CV14
+Boleta: 2025300249
+Fecha: 20/05/2025
+Descripción: Programa que busca direccionar una problematica que compromete a los videojuegos desde hace un tiempo.
+Fecha de modificación :
+Hora :
+'''
+
+# 2.- ---------------- Importación de Módulos y Bibliotecas --------------------
+import tkinter as tk
+from tkinter import messagebox
+import networkx as nx
+import matplotlib.pyplot as plt
+
+# 3.- ---------------- Variables u Objetos Globales ----------------------------
+# --- CONSTANTES Y DATOS DEL JUEGO (igual que tu código prototipo) ---
+BONIFICACIONES = {
+    "humano": 1,
+    "elfos": 2,
+    "enano": 3,
+    "qunari": 4
+}
+
+HABILIDADES_POR_CLASE = {
+    "guerrero (arma y escudo)": {
+        "Golpe venganza": 0,
+        "Muro de escudos": 1,
+        "Golpe de escudo": 1,
+        "Embestida y tajo": 2,
+        "Guardaespaldas": 3,
+        "Te costara": 3,
+        "Fortaleza caminante": 5,
+    },
+    "picaro (dos armas)": {
+        "Ataque de flanco": 0,
+        "Colmillos gemelos": 2,
+        "Golpe letal": 3,
+        "Sigilo": 2,
+        "Cuchillas de hilatura": 3,
+        "Cuchillas ocultas": 3,
+        "Capa de sombras": 6
+    },
+    "picaro (arquero)": {
+        "Primera sangre": 0,
+        "Muerte desde las alturas": 1,
+        "Tiro largo": 1,
+        "Envenenamiento": 2,
+        "Foco de lluvia de flechas": 5,
+    },
+    "mago": {
+        "Claridad de combate": 0,
+        "Inmolar": 1,
+        "Paso de fundido": 1,
+        "Tromba de energia": 2,
+        "Espada espiritual": 2,
+        "Capa de desvanecimiento": 3,
+        "Enfoque de resurgimiento": 5,
+    }
+}
+
+CONEXIONES_POR_CLASE = {
+    "guerrero (arma y escudo)": [
+        ("Golpe venganza", "Muro de escudos", 1),
+        ("Golpe venganza", "Golpe de escudo", 1),
+        ("Muro de escudos", "Embestida y tajo", 2),
+        ("Golpe de escudo", "Guardaespaldas", 3),
+        ("Guardaespaldas", "Te costara", 3),
+        ("Embestida y tajo", "Fortaleza caminante", 5),
+        ("Te costara", "Fortaleza caminante", 5),
+    ],
+    "picaro (dos armas)": [
+        ("Ataque de flanco", "Colmillos gemelos", 2),
+        ("Colmillos gemelos", "Golpe letal", 3),
+        ("Golpe letal", "Capa de sombras", 6),
+        ("Ataque de flanco", "Cuchillas de hilatura", 3),
+        ("Cuchillas de hilatura", "Cuchillas ocultas", 3),
+        ("Cuchillas ocultas", "Capa de sombras", 6),
+        ("Cuchillas ocultas", "Sigilo", 2)
+    ],
+    "picaro (arquero)": [
+        ("Primera sangre", "Muerte desde las alturas", 1),
+        ("Primera sangre", "Tiro largo", 1),
+        ("Muerte desde las alturas", "Envenenamiento", 2),
+        ("Tiro largo", "Tiro explosivo", 2),
+        ("Tiro explosivo", "Foco de lluvia de flechas", 5),
+    ],
+    "mago": [
+        ("Claridad de combate", "Inmolar", 1),
+        ("Claridad de combate", "Paso de fundido", 1),
+        ("Inmolar", "Tromba de energia", 2),
+        ("Paso de fundido", "Capa de desvanecimiento", 3),
+        ("Tromba de energia", "Enfoque de resurgimiento", 5),
+        ("Capa de desvanecimiento", "Enfoque de resurgimiento", 5),
+        ("Capa de desvanecimiento", "Espada espiritual", 2),
+    ]
+}
+
+# 4.- ---------------- Definición de Funciones o clases ------------------------
+# --- CLASES DE LAS VENTANAS (igual que antes en el codigo prototipo, pero con las habilidades integradas) ---
+class VentanaBase(tk.Frame):
+    def __init__(self, master, controlador):
+        super().__init__(master)
+        self.controlador = controlador
+        self.pack()
+        
+class VentanaInicio(VentanaBase):
+    def __init__(self, master, controlador):
+        super().__init__(master, controlador)
+        self.crear_widgets()
+
+    def crear_widgets(self):
+        tk.Label(self, text="¡Bienvenido a Proyecto Nexus!", font=("Arial", 16)).pack(pady=20)
+        tk.Label(self, text="Ingresa tu nombre de usuario:").pack(pady=5)
+
+        self.entrada_nombre = tk.Entry(self)
+        self.entrada_nombre.pack(pady=5)
+
+        tk.Button(self, text="Siguiente", command=self.ir_a_genero).pack(pady=10)
+
+    def ir_a_genero(self):
+        nombre = self.entrada_nombre.get().strip()
+        if nombre:
+            self.controlador.nombre_usuario = nombre
+            self.controlador.mostrar_ventana_genero()
+        else:
+            messagebox.showwarning("Advertencia", "Por favor, ingresa un nombre de usuario.")
+
+class VentanaGenero(VentanaBase):
+    def __init__(self, master, controlador):
+        super().__init__(master, controlador)
+        self.crear_widgets()
+
+    def crear_widgets(self):
+        tk.Label(self, text="Selecciona tu género:", font=("Arial", 14)).pack(pady=10)
+
+        tk.Button(self, text="Masculino", width=20,
+                 command=lambda: self.seleccionar_genero("Masculino")).pack(pady=5)
+        tk.Button(self, text="Femenino", width=20,
+                 command=lambda: self.seleccionar_genero("Femenino")).pack(pady=5)
+        tk.Button(self, text="Atrás", command=self.controlador.mostrar_ventana_inicio).pack(pady=10)
+
+    def seleccionar_genero(self, genero):
+        self.controlador.genero = genero
+        self.controlador.mostrar_ventana_especie()
+
+class VentanaEspecie(VentanaBase):
+    def __init__(self, master, controlador):
+        super().__init__(master, controlador)
+        self.crear_widgets()
+
+    def crear_widgets(self):
+        tk.Label(self, text="Selecciona tu especie:", font=("Arial", 14)).pack(pady=10)
+
+        especies = {
+            "humano": "Bonus: +1 punto de técnica.",
+            "elfos": "Bonus: +25% defensa a distancia.",
+            "enano": "Bonus: +25% defensa mágica.",
+            "qunari": "Bonus: +10% resistencia al daño físico."
+        }
+
+        for especie, descripcion in especies.items():
+            tk.Button(self, text=especie.capitalize(), width=20,
+                     command=lambda e=especie: self.seleccionar_especie(e)).pack(pady=4)
+            tk.Label(self, text=descripcion, font=("Arial", 9), fg="gray").pack()
+
+        tk.Button(self, text="Atrás", command=self.controlador.mostrar_ventana_genero).pack(pady=10)
+
+    def seleccionar_especie(self, especie):
+        self.controlador.especie = especie
+        self.controlador.puntos = 10 + BONIFICACIONES.get(especie, 0)
+        self.controlador.mostrar_ventana_clase()
+
+class VentanaClase(VentanaBase):
+    def __init__(self, master, controlador):
+        super().__init__(master, controlador)
+        self.crear_widgets()
+
+    def crear_widgets(self):
+        tk.Label(self, text="Selecciona tu clase:", font=("Arial", 14)).pack(pady=10)
+
+        clases = {
+            "guerrero (arma y escudo)": "Combate cuerpo a cuerpo con escudo.",
+            "picaro (dos armas)": "Velocidad y ataques con dagas.",
+            "picaro (arquero)": "Ataques a distancia con arco.",
+            "mago": "Hechizos y poderes mágicos."
+        }
+
+        for clase, descripcion in clases.items():
+            tk.Button(self, text=clase.capitalize(), width=25,
+                     command=lambda c=clase: self.seleccionar_clase(c)).pack(pady=4)
+            tk.Label(self, text=descripcion, font=("Arial", 9), fg="gray").pack()
+
+        tk.Button(self, text="Atrás", command=self.controlador.mostrar_ventana_especie).pack(pady=10)
+
+    def seleccionar_clase(self, clase):
+        self.controlador.clase = clase
+        self.controlador.mostrar_resumen_personaje()
+
+class VentanaResumen(VentanaBase):
+    def __init__(self, master, controlador):
+        super().__init__(master, controlador)
+        self.habilidades_desbloqueadas = [list(HABILIDADES_POR_CLASE.get(controlador.clase, {}).keys())[0]]  # Primera habilidad
+        self.puntos = controlador.puntos
+        self.crear_widgets()
+
+    def crear_widgets(self):
+        resumen = f"""
+        Nombre: {self.controlador.nombre_usuario}
+        Género: {self.controlador.genero}
+        Especie: {self.controlador.especie}
+        Clase: {self.controlador.clase}
+        Puntos disponibles: {self.puntos}
+        """
+        tk.Label(self, text="Resumen de tu personaje", font=("Arial", 16)).pack(pady=10)
+        tk.Label(self, text=resumen, justify="left").pack(pady=10)
+        tk.Button(self, text="Mostrar Árbol de Habilidades (Grafo)", command=self.mostrar_grafo).pack(pady=5)
+        tk.Button(self, text="Atrás", command=self.controlador.mostrar_ventana_clase).pack(pady=5)
+        tk.Button(self, text="Salir", command=self.controlador.salir, bg="#ff6b6b", fg="white").pack(pady=10)
+        # Frame para habilidades
+        self.frame_habilidades = tk.Frame(self)
+        self.frame_habilidades.pack(pady=10)
+        self.actualizar_habilidades()
+
+        # Botones
+        tk.Button(self, text="Mostrar Árbol de Habilidades (Grafo)", command=self.mostrar_grafo).pack(pady=5)
+        tk.Button(self, text="Atrás", command=self.controlador.mostrar_ventana_clase).pack(pady=5)
+
+    def actualizar_habilidades(self):
+        # Limpiar frame
+        for widget in self.frame_habilidades.winfo_children():
+            widget.destroy()
+
+        # Mostrar habilidades desbloqueadas
+        tk.Label(self.frame_habilidades, text="Habilidades desbloqueadas:", font=("Arial", 12)).pack()
+        for habilidad in self.habilidades_desbloqueadas:
+            tk.Label(self.frame_habilidades, text=f"- {habilidad}").pack()
+
+        # Mostrar opciones disponibles
+        opciones = []
+        for habilidad in self.habilidades_desbloqueadas:
+            for conexion in CONEXIONES_POR_CLASE.get(self.controlador.clase, []):
+                if conexion[0] == habilidad and conexion[1] not in self.habilidades_desbloqueadas:
+                    opciones.append((conexion[1], conexion[2]))
+
+        if opciones:
+            tk.Label(self.frame_habilidades, text="\nHabilidades disponibles:", font=("Arial", 12)).pack()
+            for habilidad, costo in opciones:
+                tk.Button(
+                    self.frame_habilidades,
+                    text=f"{habilidad} (Costo: {costo})",
+                    command=lambda h=habilidad, c=costo: self.desbloquear_habilidad(h, c)
+                ).pack(pady=2)
+        else:
+            tk.Label(self.frame_habilidades, text="¡No hay más habilidades para desbloquear!").pack()
+
+    def desbloquear_habilidad(self, habilidad, costo):
+        if self.puntos >= costo:
+            self.puntos -= costo
+            self.habilidades_desbloqueadas.append(habilidad)
+            self.actualizar_habilidades()
+        else:
+            messagebox.showwarning("Error", "No tienes suficientes puntos.")
+
+    def mostrar_grafo(self):
+        G = nx.Graph()
+        clase = self.controlador.clase
+
+        # Añadir nodos
+        for habilidad, costo in HABILIDADES_POR_CLASE.get(clase, {}).items():
+            G.add_node(habilidad, costo=costo)
+
+        # Añadir aristas
+        for a, b, peso in CONEXIONES_POR_CLASE.get(clase, []):
+            G.add_edge(a, b, peso=peso)
+
+        # Dibujar
+        pos = nx.spring_layout(G, seed=42)
+        plt.figure(figsize=(12, 8))
+        colores = ["lightgreen" if nodo in self.habilidades_desbloqueadas else "lightgray" for nodo in G.nodes()]
+        nx.draw_networkx_nodes(G, pos, node_color=colores, node_size=1500)
+        nx.draw_networkx_labels(G, pos, font_size=9, font_weight="bold")
+        nx.draw_networkx_edges(G, pos, width=2)
+        labels = nx.get_edge_attributes(G, "peso")
+        nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
+
+        plt.title(f"Árbol de Habilidades (Grafo) - {clase.capitalize()}")
+        plt.axis("off")
+        plt.tight_layout()
+        plt.show()
+
+class App(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("Proyecto Nexus")
+        self.geometry("500x600")
+        self.nombre_usuario = ""
+        self.genero = ""
+        self.especie = ""
+        self.clase = ""
+        self.puntos = 0
+        self.ventana_actual = None
+        self.mostrar_ventana_inicio()
+
+    def mostrar_ventana_inicio(self):
+        self.cambiar_ventana(VentanaInicio)
+
+    def mostrar_ventana_genero(self):
+        self.cambiar_ventana(VentanaGenero)
+
+    def mostrar_ventana_especie(self):
+        self.cambiar_ventana(VentanaEspecie)
+
+    def mostrar_ventana_clase(self):
+        self.cambiar_ventana(VentanaClase)
+
+    def mostrar_resumen_personaje(self):
+        self.cambiar_ventana(VentanaResumen)
+
+    def cambiar_ventana(self, clase_ventana):
+        if self.ventana_actual:
+            self.ventana_actual.destroy()
+        self.ventana_actual = clase_ventana(self, self)
+    def salir(self):
+        mensaje = f"¡Buena suerte, {self.nombre_usuario}! Que tus habilidades de {self.clase} te lleven a la victoria."
+        messagebox.showinfo("¡Hasta luego!", mensaje)
+        self.destroy()
+
+
+# 5.- ---------------- Bloque Principal ----------------------------------------
+if __name__ == "__main__":
+    app = App()
+    app.mainloop()
+
+# 6.- ---------------- Documentación y Comentarios------------------------------
